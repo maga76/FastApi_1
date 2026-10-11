@@ -262,3 +262,113 @@ def clear_cart(user_id: int, db: Session = Depends(get_db)):
     if crud.clear_cart(db, user_id) is None:
         raise HTTPException(status_code=404, detail="User not found")
     return {"message": "Cart cleared"}
+
+
+@app.post("/orders/create/", response_model=schemas.OrderRead, status_code=201)
+def create_order(data: schemas.OrderCreate, db: Session = Depends(get_db)):
+    try:
+        return crud.create_order(db, data.user_id)
+    except ValueError as error:
+        bad_request(error)
+
+
+@app.get("/orders/", response_model=list[schemas.OrderRead])
+def get_orders(
+    status: Literal["new", "paid", "cancelled"] | None = None,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    sort_by: Literal["total_price", "created_at"] = "created_at",
+    order: Literal["asc", "desc"] = "desc",
+    db: Session = Depends(get_db),
+):
+    return crud.get_orders(
+        db, status, None, (page - 1) * page_size, page_size, sort_by, order
+    )
+
+
+@app.get("/orders/{order_id}", response_model=schemas.OrderRead)
+def get_order(order_id: int, db: Session = Depends(get_db)):
+    order = crud.get_order(db, order_id)
+    if order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return order
+
+
+@app.patch("/orders/{order_id}/status", response_model=schemas.OrderRead)
+def update_order_status(
+    order_id: int,
+    data: schemas.OrderStatusUpdate,
+    db: Session = Depends(get_db),
+):
+    try:
+        order = crud.update_order_status(db, order_id, data.status)
+    except ValueError as error:
+        bad_request(error)
+    if order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return order
+
+
+@app.patch("/orders/{order_id}/cancel", response_model=schemas.OrderRead)
+def cancel_order(order_id: int, db: Session = Depends(get_db)):
+    try:
+        order = crud.update_order_status(db, order_id, "cancelled")
+    except ValueError as error:
+        bad_request(error)
+    if order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return order
+
+
+@app.get("/users/{user_id}/orders/", response_model=list[schemas.OrderRead])
+def user_orders(user_id: int, db: Session = Depends(get_db)):
+    if crud.get_user(db, user_id) is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return crud.get_orders(db, None, user_id, 0, 100, "created_at", "desc")
+
+
+@app.get("/users/{user_id}/statistics/")
+def user_statistics(user_id: int, db: Session = Depends(get_db)):
+    result = crud.user_purchase_statistics(db, user_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return result
+
+
+@app.get("/users/{user_id}/purchases/", response_model=list[schemas.OrderRead])
+def user_purchase_history(user_id: int, db: Session = Depends(get_db)):
+    if crud.get_user(db, user_id) is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return crud.get_orders(db, None, user_id, 0, 100, "created_at", "desc")
+
+
+@app.get("/users/{user_id}/purchases/last", response_model=schemas.OrderRead)
+def last_user_order(user_id: int, db: Session = Depends(get_db)):
+    orders = crud.get_orders(db, None, user_id, 0, 1, "created_at", "desc")
+    if not orders:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return orders[0]
+
+
+@app.get("/users/{user_id}/purchases/most-expensive", response_model=schemas.OrderRead)
+def most_expensive_user_order(user_id: int, db: Session = Depends(get_db)):
+    orders = crud.get_orders(db, None, user_id, 0, 1, "total_price", "desc")
+    if not orders:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return orders[0]
+
+
+@app.get("/users/{user_id}/purchased-products/")
+def user_purchased_products(user_id: int, db: Session = Depends(get_db)):
+    result = crud.purchased_products(db, user_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return result
+
+
+@app.get("/users/{user_id}/purchased-products/{product_id}/count")
+def user_product_purchase_count(user_id: int, product_id: int, db: Session = Depends(get_db)):
+    result = crud.product_purchase_count(db, user_id, product_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return result
