@@ -17,3 +17,12 @@ class User(Base):
     orders: Mapped[list["Order"]] = relationship(cascade="all, delete-orphan")
     reviews: Mapped[list["Review"]] = relationship(cascade="all, delete-orphan")
     favorites: Mapped[list["Favorite"]] = relationship(cascade="all, delete-orphan")
+
+
+class Category(Base):
+    __tablename__ = "categories"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
+
+    products: Mapped[list["Product"]] = relationship(back_populates="category")
