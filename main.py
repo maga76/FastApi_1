@@ -140,6 +140,16 @@ def low_stock_products(db: Session = Depends(get_db)):
     ).order_by(models.Product.stock.asc()).all()
 
 
+@app.get("/products/high-rating/")
+def high_rating_products(min_rating: float = Query(4, ge=1, le=5), db: Session = Depends(get_db)):
+    return crud.products_by_rating(db, minimum=min_rating)
+
+
+@app.get("/products/low-rating/")
+def low_rating_products(max_rating: float = Query(2, ge=1, le=5), db: Session = Depends(get_db)):
+    return crud.products_by_rating(db, maximum=max_rating)
+
+
 @app.post("/products/", response_model=schemas.ProductNested, status_code=201)
 def create_product(data: schemas.ProductCreate, db: Session = Depends(get_db)):
     try:
@@ -372,16 +382,6 @@ def user_product_purchase_count(user_id: int, product_id: int, db: Session = Dep
     if result is None:
         raise HTTPException(status_code=404, detail="User not found")
     return result
-
-
-@app.get("/products/high-rating/")
-def high_rating_products(min_rating: float = Query(4, ge=1, le=5), db: Session = Depends(get_db)):
-    return crud.products_by_rating(db, minimum=min_rating)
-
-
-@app.get("/products/low-rating/")
-def low_rating_products(max_rating: float = Query(2, ge=1, le=5), db: Session = Depends(get_db)):
-    return crud.products_by_rating(db, maximum=max_rating)
 
 
 @app.post("/products/{product_id}/reviews/", response_model=schemas.ReviewRead, status_code=201)
