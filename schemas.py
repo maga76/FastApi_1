@@ -71,3 +71,26 @@ class ProductRead(ProductCreate):
 
 class ProductNested(ProductRead):
     category: CategoryRead
+
+
+class CartAdd(BaseModel):
+    user_id: int = Field(ge=1)
+    product_id: int = Field(ge=1)
+    quantity: int = Field(ge=1)
+
+
+class CartQuantity(BaseModel):
+    quantity: int = Field(ge=1)
+
+
+class CartItemRead(BaseModel):
+    id: int
+    quantity: int
+    product: ProductRead
+    subtotal: float
+
+
+class CartRead(BaseModel):
+    user_id: int
+    items: list[CartItemRead]
+    total_price: float
