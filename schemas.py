@@ -27,3 +27,21 @@ class UserUpdate(UserCreate):
 class UserRead(UserCreate):
     id: int
     model_config = ConfigDict(from_attributes=True)
+
+
+class CategoryCreate(BaseModel):
+    name: str
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str):
+        return clean_text(value)
+
+
+class CategoryUpdate(CategoryCreate):
+    pass
+
+
+class CategoryRead(CategoryCreate):
+    id: int
+    model_config = ConfigDict(from_attributes=True)
