@@ -188,3 +188,94 @@ def get_similar_products(db: Session, product_id: int):
         models.Product.category_id == product.category_id,
         models.Product.id != product_id,
     ).limit(10).all()
+
+
+def get_cart_item(db: Session, cart_item_id: int):
+    return db.query(models.CartItem).filter(models.CartItem.id == cart_item_id).first()
+
+
+def add_to_cart(db: Session, data: schemas.CartAdd):
+    if get_user(db, data.user_id) is None:
+        raise ValueError("User not found")
+    product = get_product(db, data.product_id)
+    if product is None:
+        raise ValueError("Product not found")
+    if product.stock == 0:
+        raise ValueError("Product is out of stock")
+    item = db.query(models.CartItem).filter(
+        models.CartItem.user_id == data.user_id,
+        models.CartItem.product_id == data.product_id,
+    ).first()
+    new_quantity = data.quantity + (item.quantity if item else 0)
+    if new_quantity > product.stock:
+        raise ValueError("Not enough product in stock")
+    if item:
+        item.quantity = new_quantity
+    else:
+        item = models.CartItem(**data.model_dump())
+        db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def change_cart_quantity(db: Session, cart_item_id: int, quantity: int):
+    item = get_cart_item(db, cart_item_id)
+    if item is None:
+        return None
+    product = get_product(db, item.product_id)
+    if quantity > product.stock:
+        raise ValueError("Not enough product in stock")
+    item.quantity = quantity
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def decrease_cart_item(db: Session, cart_item_id: int):
+    item = get_cart_item(db, cart_item_id)
+    if item is None:
+        return None
+    if item.quantity <= 1:
+        raise ValueError("Quantity cannot be less than 1")
+    item.quantity -= 1
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def delete_cart_item(db: Session, cart_item_id: int):
+    item = get_cart_item(db, cart_item_id)
+    if item is None:
+        return None
+    db.delete(item)
+    db.commit()
+    return item
+
+
+def clear_cart(db: Session, user_id: int):
+    if get_user(db, user_id) is None:
+        return None
+    db.query(models.CartItem).filter(models.CartItem.user_id == user_id).delete()
+    db.commit()
+    return True
+
+
+def cart_response(db: Session, user_id: int):
+    if get_user(db, user_id) is None:
+        return None
+    items = db.query(models.CartItem).options(joinedload(models.CartItem.product)).filter(
+        models.CartItem.user_id == user_id
+    ).all()
+    result = []
+    total = 0
+    for item in items:
+        subtotal = round(item.product.price * item.quantity, 2)
+        total += subtotal
+        result.append({
+            "id": item.id,
+            "quantity": item.quantity,
+            "product": item.product,
+            "subtotal": subtotal,
+        })
+    return {"user_id": user_id, "items": result, "total_price": round(total, 2)}
