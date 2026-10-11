@@ -26,3 +26,21 @@ class Category(Base):
     name: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
 
     products: Mapped[list["Product"]] = relationship(back_populates="category")
+
+
+class Product(Base):
+    __tablename__ = "products"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(150), nullable=False, index=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    price: Mapped[float] = mapped_column(Float, nullable=False)
+    stock: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"), nullable=False)
+
+    category: Mapped["Category"] = relationship(back_populates="products")
+    reviews: Mapped[list["Review"]] = relationship(cascade="all, delete-orphan")
+    favorites: Mapped[list["Favorite"]] = relationship(
+        back_populates="product",
+        cascade="all, delete-orphan",
+    )
