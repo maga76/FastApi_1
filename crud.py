@@ -449,3 +449,51 @@ def products_by_rating(db: Session, minimum: float | None = None, maximum: float
         {"product_id": row.id, "name": row.name, "average_rating": round(row.average_rating, 2)}
         for row in query.all()
     ]
+
+
+def add_favorite(db: Session, data: schemas.FavoriteCreate):
+    if get_user(db, data.user_id) is None:
+        raise ValueError("User not found")
+    if get_product(db, data.product_id) is None:
+        raise ValueError("Product not found")
+    exists = db.query(models.Favorite).filter(
+        models.Favorite.user_id == data.user_id,
+        models.Favorite.product_id == data.product_id,
+    ).first()
+    if exists:
+        raise ValueError("Product is already in favorites")
+    favorite = models.Favorite(**data.model_dump())
+    db.add(favorite)
+    db.commit()
+    db.refresh(favorite)
+    return db.query(models.Favorite).options(joinedload(models.Favorite.product)).filter(
+        models.Favorite.id == favorite.id
+    ).first()
+
+
+def get_favorites(db: Session, user_id: int):
+    if get_user(db, user_id) is None:
+        return None
+    return db.query(models.Favorite).options(joinedload(models.Favorite.product)).filter(
+        models.Favorite.user_id == user_id
+    ).all()
+
+
+def delete_favorite(db: Session, user_id: int, product_id: int):
+    favorite = db.query(models.Favorite).filter(
+        models.Favorite.user_id == user_id,
+        models.Favorite.product_id == product_id,
+    ).first()
+    if favorite is None:
+        return None
+    db.delete(favorite)
+    db.commit()
+    return favorite
+
+
+def favorite_exists(db: Session, user_id: int, product_id: int):
+    favorite = db.query(models.Favorite).filter(
+        models.Favorite.user_id == user_id,
+        models.Favorite.product_id == product_id,
+    ).first()
+    return {"is_favorite": favorite is not None}
