@@ -497,3 +497,44 @@ def favorite_exists(db: Session, user_id: int, product_id: int):
         models.Favorite.product_id == product_id,
     ).first()
     return {"is_favorite": favorite is not None}
+
+
+def shop_statistics(db: Session):
+    orders = db.query(models.Order).filter(models.Order.status != "cancelled").all()
+    total = round(sum(order.total_price for order in orders), 2)
+    return {
+        "users_count": db.query(models.User).count(),
+        "products_count": db.query(models.Product).count(),
+        "categories_count": db.query(models.Category).count(),
+        "orders_count": len(orders),
+        "total_orders_sum": total,
+        "average_order_sum": round(total / len(orders), 2) if orders else 0,
+    }
+
+
+def best_selling_product(db: Session):
+    row = db.query(
+        models.OrderItem.product_id,
+        models.OrderItem.product_name,
+        func.sum(models.OrderItem.quantity).label("sold"),
+    ).join(models.Order).filter(models.Order.status != "cancelled").group_by(
+        models.OrderItem.product_id,
+        models.OrderItem.product_name,
+    ).order_by(func.sum(models.OrderItem.quantity).desc()).first()
+    if row is None:
+        return None
+    return {"product_id": row.product_id, "name": row.product_name, "sold": row.sold}
+
+
+def top_user(db: Session):
+    row = db.query(
+        models.User.id,
+        models.User.name,
+        func.sum(models.Order.total_price).label("spent"),
+    ).join(models.Order).filter(models.Order.status != "cancelled").group_by(
+        models.User.id,
+        models.User.name,
+    ).order_by(func.sum(models.Order.total_price).desc()).first()
+    if row is None:
+        return None
+    return {"user_id": row.id, "name": row.name, "total_spent": round(row.spent, 2)}
