@@ -94,3 +94,31 @@ class CartRead(BaseModel):
     user_id: int
     items: list[CartItemRead]
     total_price: float
+
+
+class OrderCreate(BaseModel):
+    user_id: int = Field(ge=1)
+
+
+class OrderStatusUpdate(BaseModel):
+    status: Literal["new", "paid", "cancelled"]
+
+
+class OrderItemRead(BaseModel):
+    id: int
+    product_id: int
+    product_name: str
+    price: float
+    quantity: int
+    subtotal: float
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OrderRead(BaseModel):
+    id: int
+    user_id: int
+    total_price: float
+    status: str
+    created_at: datetime
+    items: list[OrderItemRead]
+    model_config = ConfigDict(from_attributes=True)
