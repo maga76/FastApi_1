@@ -397,3 +397,55 @@ def product_purchase_count(db: Session, user_id: int, product_id: int):
         models.OrderItem.product_id == product_id,
     ).scalar()
     return {"user_id": user_id, "product_id": product_id, "quantity": quantity}
+
+
+def create_review(db: Session, product_id: int, data: schemas.ReviewCreate):
+    if get_product(db, product_id) is None:
+        raise ValueError("Product not found")
+    if get_user(db, data.user_id) is None:
+        raise ValueError("User not found")
+    review = models.Review(product_id=product_id, **data.model_dump())
+    db.add(review)
+    db.commit()
+    db.refresh(review)
+    return review
+
+
+def get_reviews(db: Session, product_id: int):
+    if get_product(db, product_id) is None:
+        return None
+    return db.query(models.Review).filter(models.Review.product_id == product_id).all()
+
+
+def delete_review(db: Session, review_id: int):
+    review = db.query(models.Review).filter(models.Review.id == review_id).first()
+    if review is None:
+        return None
+    db.delete(review)
+    db.commit()
+    return review
+
+
+def average_rating(db: Session, product_id: int):
+    if get_product(db, product_id) is None:
+        return None
+    value = db.query(func.avg(models.Review.rating)).filter(
+        models.Review.product_id == product_id
+    ).scalar()
+    return {"product_id": product_id, "average_rating": round(value or 0, 2)}
+
+
+def products_by_rating(db: Session, minimum: float | None = None, maximum: float | None = None):
+    query = db.query(
+        models.Product.id,
+        models.Product.name,
+        func.avg(models.Review.rating).label("average_rating"),
+    ).join(models.Review).group_by(models.Product.id, models.Product.name)
+    if minimum is not None:
+        query = query.having(func.avg(models.Review.rating) >= minimum)
+    if maximum is not None:
+        query = query.having(func.avg(models.Review.rating) <= maximum)
+    return [
+        {"product_id": row.id, "name": row.name, "average_rating": round(row.average_rating, 2)}
+        for row in query.all()
+    ]
