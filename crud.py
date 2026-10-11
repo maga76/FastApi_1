@@ -279,3 +279,75 @@ def cart_response(db: Session, user_id: int):
             "subtotal": subtotal,
         })
     return {"user_id": user_id, "items": result, "total_price": round(total, 2)}
+
+
+def create_order(db: Session, user_id: int):
+    if get_user(db, user_id) is None:
+        raise ValueError("User not found")
+    cart_items = db.query(models.CartItem).options(joinedload(models.CartItem.product)).filter(
+        models.CartItem.user_id == user_id
+    ).all()
+    if not cart_items:
+        raise ValueError("Cart is empty")
+    for item in cart_items:
+        if item.quantity > item.product.stock:
+            raise ValueError(f"Not enough stock for {item.product.name}")
+    total = round(sum(item.product.price * item.quantity for item in cart_items), 2)
+    order = models.Order(user_id=user_id, total_price=total, status="new")
+    db.add(order)
+    db.flush()
+    for item in cart_items:
+        subtotal = round(item.product.price * item.quantity, 2)
+        db.add(models.OrderItem(
+            order_id=order.id,
+            product_id=item.product_id,
+            product_name=item.product.name,
+            price=item.product.price,
+            quantity=item.quantity,
+            subtotal=subtotal,
+        ))
+        item.product.stock -= item.quantity
+        db.delete(item)
+    db.commit()
+    return get_order(db, order.id)
+
+
+def get_order(db: Session, order_id: int):
+    return db.query(models.Order).options(joinedload(models.Order.items)).filter(
+        models.Order.id == order_id
+    ).first()
+
+
+def get_orders(
+    db: Session,
+    status: str | None,
+    user_id: int | None,
+    skip: int,
+    limit: int,
+    sort_by: str,
+    order: str,
+):
+    query = db.query(models.Order).options(joinedload(models.Order.items))
+    if status:
+        query = query.filter(models.Order.status == status)
+    if user_id is not None:
+        query = query.filter(models.Order.user_id == user_id)
+    column = models.Order.total_price if sort_by == "total_price" else models.Order.created_at
+    query = query.order_by(column.desc() if order == "desc" else column.asc())
+    return query.offset(skip).limit(limit).all()
+
+
+def update_order_status(db: Session, order_id: int, status: str):
+    order = get_order(db, order_id)
+    if order is None:
+        return None
+    if order.status == "cancelled":
+        raise ValueError("Cancelled order cannot be changed")
+    if status == "cancelled":
+        for item in order.items:
+            product = db.query(models.Product).filter(models.Product.id == item.product_id).first()
+            if product:
+                product.stock += item.quantity
+    order.status = status
+    db.commit()
+    return get_order(db, order_id)
