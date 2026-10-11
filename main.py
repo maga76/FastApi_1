@@ -115,3 +115,93 @@ def category_products(category_id: int, db: Session = Depends(get_db)):
     if crud.get_category(db, category_id) is None:
         raise HTTPException(status_code=404, detail="Category not found")
     return crud.get_products(db, category_id=category_id, limit=100)
+
+
+@app.get("/products/cheap/", response_model=list[schemas.ProductNested])
+def cheap_products(max_price: float = Query(100, gt=0), db: Session = Depends(get_db)):
+    return crud.get_products(db, max_price=max_price, limit=100, sort_by="price")
+
+
+@app.get("/products/expensive/", response_model=list[schemas.ProductNested])
+def expensive_products(min_price: float = Query(100, gt=0), db: Session = Depends(get_db)):
+    return crud.get_products(db, min_price=min_price, limit=100, sort_by="price", order="desc")
+
+
+@app.get("/products/out-of-stock/", response_model=list[schemas.ProductNested])
+def out_of_stock_products(db: Session = Depends(get_db)):
+    return crud.get_products(db, in_stock=False, limit=100)
+
+
+@app.get("/products/low-stock/", response_model=list[schemas.ProductNested])
+def low_stock_products(db: Session = Depends(get_db)):
+    return db.query(models.Product).filter(
+        models.Product.stock > 0,
+        models.Product.stock < 5,
+    ).order_by(models.Product.stock.asc()).all()
+
+
+@app.post("/products/", response_model=schemas.ProductNested, status_code=201)
+def create_product(data: schemas.ProductCreate, db: Session = Depends(get_db)):
+    try:
+        return crud.create_product(db, data)
+    except ValueError as error:
+        bad_request(error)
+
+
+@app.get("/products/", response_model=list[schemas.ProductNested])
+def get_products(
+    search: str | None = Query(None, min_length=1),
+    category_id: int | None = Query(None, ge=1),
+    min_price: float | None = Query(None, gt=0),
+    max_price: float | None = Query(None, gt=0),
+    in_stock: bool | None = None,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    sort_by: Literal["id", "name", "price", "stock"] = "id",
+    order: Literal["asc", "desc"] = "asc",
+    db: Session = Depends(get_db),
+):
+    if min_price is not None and max_price is not None and min_price > max_price:
+        raise HTTPException(status_code=400, detail="min_price cannot be greater than max_price")
+    return crud.get_products(
+        db, search, category_id, min_price, max_price, in_stock,
+        (page - 1) * page_size, page_size, sort_by, order,
+    )
+
+
+@app.get("/products/{product_id}", response_model=schemas.ProductNested)
+def get_product(product_id: int, db: Session = Depends(get_db)):
+    product = crud.get_product(db, product_id)
+    if product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return product
+
+
+@app.put("/products/{product_id}", response_model=schemas.ProductNested)
+def update_product(product_id: int, data: schemas.ProductUpdate, db: Session = Depends(get_db)):
+    try:
+        product = crud.update_product(db, product_id, data)
+    except ValueError as error:
+        bad_request(error)
+    if product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return product
+
+
+@app.delete("/products/{product_id}")
+def delete_product(product_id: int, db: Session = Depends(get_db)):
+    try:
+        product = crud.delete_product(db, product_id)
+    except ValueError as error:
+        bad_request(error)
+    if product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return {"message": "Product deleted"}
+
+
+@app.get("/products/{product_id}/similar/", response_model=list[schemas.ProductRead])
+def similar_products(product_id: int, db: Session = Depends(get_db)):
+    products = crud.get_similar_products(db, product_id)
+    if products is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return products
