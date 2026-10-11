@@ -122,3 +122,27 @@ class OrderRead(BaseModel):
     created_at: datetime
     items: list[OrderItemRead]
     model_config = ConfigDict(from_attributes=True)
+
+
+class ReviewCreate(BaseModel):
+    user_id: int = Field(ge=1)
+    rating: int = Field(ge=1, le=5)
+    comment: str | None = None
+
+
+class ReviewRead(ReviewCreate):
+    id: int
+    product_id: int
+    model_config = ConfigDict(from_attributes=True)
+
+
+class FavoriteCreate(BaseModel):
+    user_id: int = Field(ge=1)
+    product_id: int = Field(ge=1)
+
+
+class FavoriteRead(BaseModel):
+    id: int
+    user_id: int
+    product: ProductRead
+    model_config = ConfigDict(from_attributes=True)
