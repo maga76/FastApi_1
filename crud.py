@@ -47,3 +47,53 @@ def delete_user(db: Session, user_id: int):
     db.delete(user)
     db.commit()
     return user
+
+
+def get_categories(db: Session, search: str | None, sort_by: str, order: str):
+    query = db.query(models.Category)
+    if search:
+        query = query.filter(models.Category.name.contains(search))
+    column = models.Category.name if sort_by == "name" else models.Category.id
+    query = query.order_by(column.desc() if order == "desc" else column.asc())
+    return query.all()
+
+
+def get_category(db: Session, category_id: int):
+    return db.query(models.Category).filter(models.Category.id == category_id).first()
+
+
+def create_category(db: Session, data: schemas.CategoryCreate):
+    if db.query(models.Category).filter(models.Category.name == data.name).first():
+        raise ValueError("Category already exists")
+    category = models.Category(name=data.name)
+    db.add(category)
+    db.commit()
+    db.refresh(category)
+    return category
+
+
+def update_category(db: Session, category_id: int, data: schemas.CategoryUpdate):
+    category = get_category(db, category_id)
+    if category is None:
+        return None
+    duplicate = db.query(models.Category).filter(
+        models.Category.name == data.name,
+        models.Category.id != category_id,
+    ).first()
+    if duplicate:
+        raise ValueError("Category already exists")
+    category.name = data.name
+    db.commit()
+    db.refresh(category)
+    return category
+
+
+def delete_category(db: Session, category_id: int):
+    category = get_category(db, category_id)
+    if category is None:
+        return None
+    if category.products:
+        raise ValueError("Category has products")
+    db.delete(category)
+    db.commit()
+    return category
