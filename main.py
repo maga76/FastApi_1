@@ -205,3 +205,60 @@ def similar_products(product_id: int, db: Session = Depends(get_db)):
     if products is None:
         raise HTTPException(status_code=404, detail="Product not found")
     return products
+
+
+@app.post("/cart/add/", response_model=schemas.CartRead)
+def add_to_cart(data: schemas.CartAdd, db: Session = Depends(get_db)):
+    try:
+        crud.add_to_cart(db, data)
+    except ValueError as error:
+        bad_request(error)
+    return crud.cart_response(db, data.user_id)
+
+
+@app.get("/cart/{user_id}", response_model=schemas.CartRead)
+def get_cart(user_id: int, db: Session = Depends(get_db)):
+    result = crud.cart_response(db, user_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return result
+
+
+@app.put("/cart/items/{cart_item_id}")
+def change_cart_quantity(
+    cart_item_id: int,
+    data: schemas.CartQuantity,
+    db: Session = Depends(get_db),
+):
+    try:
+        item = crud.change_cart_quantity(db, cart_item_id, data.quantity)
+    except ValueError as error:
+        bad_request(error)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Cart item not found")
+    return {"message": "Quantity changed", "quantity": item.quantity}
+
+
+@app.patch("/cart/items/{cart_item_id}/decrease")
+def decrease_cart_item(cart_item_id: int, db: Session = Depends(get_db)):
+    try:
+        item = crud.decrease_cart_item(db, cart_item_id)
+    except ValueError as error:
+        bad_request(error)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Cart item not found")
+    return {"message": "Quantity decreased", "quantity": item.quantity}
+
+
+@app.delete("/cart/items/{cart_item_id}")
+def delete_cart_item(cart_item_id: int, db: Session = Depends(get_db)):
+    if crud.delete_cart_item(db, cart_item_id) is None:
+        raise HTTPException(status_code=404, detail="Cart item not found")
+    return {"message": "Product removed from cart"}
+
+
+@app.delete("/cart/clear/{user_id}")
+def clear_cart(user_id: int, db: Session = Depends(get_db)):
+    if crud.clear_cart(db, user_id) is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"message": "Cart cleared"}
