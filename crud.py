@@ -351,3 +351,49 @@ def update_order_status(db: Session, order_id: int, status: str):
     order.status = status
     db.commit()
     return get_order(db, order_id)
+
+
+def user_purchase_statistics(db: Session, user_id: int):
+    if get_user(db, user_id) is None:
+        return None
+    orders = db.query(models.Order).filter(
+        models.Order.user_id == user_id,
+        models.Order.status != "cancelled",
+    ).all()
+    total = round(sum(order.total_price for order in orders), 2)
+    return {
+        "user_id": user_id,
+        "orders_count": len(orders),
+        "total_spent": total,
+        "average_order": round(total / len(orders), 2) if orders else 0,
+    }
+
+
+def purchased_products(db: Session, user_id: int):
+    if get_user(db, user_id) is None:
+        return None
+    rows = db.query(
+        models.OrderItem.product_id,
+        models.OrderItem.product_name,
+        func.sum(models.OrderItem.quantity).label("quantity"),
+    ).join(models.Order).filter(
+        models.Order.user_id == user_id,
+        models.Order.status != "cancelled",
+    ).group_by(models.OrderItem.product_id, models.OrderItem.product_name).all()
+    return [
+        {"product_id": row.product_id, "product_name": row.product_name, "quantity": row.quantity}
+        for row in rows
+    ]
+
+
+def product_purchase_count(db: Session, user_id: int, product_id: int):
+    if get_user(db, user_id) is None:
+        return None
+    quantity = db.query(func.coalesce(func.sum(models.OrderItem.quantity), 0)).join(
+        models.Order
+    ).filter(
+        models.Order.user_id == user_id,
+        models.Order.status != "cancelled",
+        models.OrderItem.product_id == product_id,
+    ).scalar()
+    return {"user_id": user_id, "product_id": product_id, "quantity": quantity}
