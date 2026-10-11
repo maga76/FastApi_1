@@ -45,3 +45,29 @@ class CategoryUpdate(CategoryCreate):
 class CategoryRead(CategoryCreate):
     id: int
     model_config = ConfigDict(from_attributes=True)
+
+
+class ProductCreate(BaseModel):
+    name: str
+    description: str | None = None
+    price: float = Field(gt=0)
+    stock: int = Field(ge=0)
+    category_id: int = Field(ge=1)
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str):
+        return clean_text(value)
+
+
+class ProductUpdate(ProductCreate):
+    pass
+
+
+class ProductRead(ProductCreate):
+    id: int
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProductNested(ProductRead):
+    category: CategoryRead
