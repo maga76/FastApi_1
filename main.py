@@ -441,3 +441,40 @@ def delete_favorite(user_id: int, product_id: int, db: Session = Depends(get_db)
     if crud.delete_favorite(db, user_id, product_id) is None:
         raise HTTPException(status_code=404, detail="Favorite not found")
     return {"message": "Product removed from favorites"}
+
+
+@app.get("/statistics/")
+def statistics(db: Session = Depends(get_db)):
+    return crud.shop_statistics(db)
+
+
+@app.get("/statistics/best-selling-product/")
+def best_selling_product(db: Session = Depends(get_db)):
+    result = crud.best_selling_product(db)
+    if result is None:
+        raise HTTPException(status_code=404, detail="No sales yet")
+    return result
+
+
+@app.get("/statistics/most-expensive-product/", response_model=schemas.ProductRead)
+def most_expensive_product(db: Session = Depends(get_db)):
+    product = db.query(models.Product).order_by(models.Product.price.desc()).first()
+    if product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return product
+
+
+@app.get("/statistics/cheapest-product/", response_model=schemas.ProductRead)
+def cheapest_product(db: Session = Depends(get_db)):
+    product = db.query(models.Product).order_by(models.Product.price.asc()).first()
+    if product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return product
+
+
+@app.get("/statistics/top-user/")
+def top_user(db: Session = Depends(get_db)):
+    result = crud.top_user(db)
+    if result is None:
+        raise HTTPException(status_code=404, detail="No purchases yet")
+    return result
