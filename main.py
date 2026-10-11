@@ -372,3 +372,72 @@ def user_product_purchase_count(user_id: int, product_id: int, db: Session = Dep
     if result is None:
         raise HTTPException(status_code=404, detail="User not found")
     return result
+
+
+@app.get("/products/high-rating/")
+def high_rating_products(min_rating: float = Query(4, ge=1, le=5), db: Session = Depends(get_db)):
+    return crud.products_by_rating(db, minimum=min_rating)
+
+
+@app.get("/products/low-rating/")
+def low_rating_products(max_rating: float = Query(2, ge=1, le=5), db: Session = Depends(get_db)):
+    return crud.products_by_rating(db, maximum=max_rating)
+
+
+@app.post("/products/{product_id}/reviews/", response_model=schemas.ReviewRead, status_code=201)
+def create_review(product_id: int, data: schemas.ReviewCreate, db: Session = Depends(get_db)):
+    try:
+        return crud.create_review(db, product_id, data)
+    except ValueError as error:
+        bad_request(error)
+
+
+@app.get("/products/{product_id}/reviews/", response_model=list[schemas.ReviewRead])
+def get_reviews(product_id: int, db: Session = Depends(get_db)):
+    reviews = crud.get_reviews(db, product_id)
+    if reviews is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return reviews
+
+
+@app.get("/products/{product_id}/rating/")
+def product_average_rating(product_id: int, db: Session = Depends(get_db)):
+    result = crud.average_rating(db, product_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return result
+
+
+@app.delete("/reviews/{review_id}")
+def delete_review(review_id: int, db: Session = Depends(get_db)):
+    if crud.delete_review(db, review_id) is None:
+        raise HTTPException(status_code=404, detail="Review not found")
+    return {"message": "Review deleted"}
+
+
+@app.post("/favorites/", response_model=schemas.FavoriteRead, status_code=201)
+def add_favorite(data: schemas.FavoriteCreate, db: Session = Depends(get_db)):
+    try:
+        return crud.add_favorite(db, data)
+    except ValueError as error:
+        bad_request(error)
+
+
+@app.get("/favorites/{user_id}", response_model=list[schemas.FavoriteRead])
+def get_favorites(user_id: int, db: Session = Depends(get_db)):
+    favorites = crud.get_favorites(db, user_id)
+    if favorites is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return favorites
+
+
+@app.get("/favorites/{user_id}/{product_id}/check")
+def check_favorite(user_id: int, product_id: int, db: Session = Depends(get_db)):
+    return crud.favorite_exists(db, user_id, product_id)
+
+
+@app.delete("/favorites/{user_id}/{product_id}")
+def delete_favorite(user_id: int, product_id: int, db: Session = Depends(get_db)):
+    if crud.delete_favorite(db, user_id, product_id) is None:
+        raise HTTPException(status_code=404, detail="Favorite not found")
+    return {"message": "Product removed from favorites"}
