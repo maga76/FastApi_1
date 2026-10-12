@@ -4,9 +4,6 @@ from models import CartItem, Category, Favorite, Order, OrderItem, Product, Revi
 import schemas
 
 
-# -------------------- USERS --------------------
-
-
 def get_users(db: Session):
     return db.query(User).order_by(User.id).all()
 
@@ -43,9 +40,6 @@ def update_user(db: Session, db_user: User, user):
 def delete_user(db: Session, user: User):
     db.delete(user)
     db.commit()
-
-
-# -------------------- CATEGORIES --------------------
 
 
 def get_categories(db: Session, search=None, sort_by="id", order="asc"):
@@ -93,9 +87,6 @@ def delete_category(db: Session, category: Category):
         raise ValueError("Category has products")
     db.delete(category)
     db.commit()
-
-
-# -------------------- PRODUCTS --------------------
 
 
 def get_product(db: Session, product_id: int):
@@ -186,9 +177,6 @@ def get_similar_products(db: Session, product_id: int):
         Product.category_id == product.category_id,
         Product.id != product_id,
     ).limit(10).all()
-
-
-# -------------------- CART --------------------
 
 
 def get_cart_item(db: Session, cart_item_id: int):
@@ -290,9 +278,6 @@ def cart_response(db: Session, user_id: int):
     }
 
 
-# -------------------- ORDERS --------------------
-
-
 def get_order(db: Session, order_id: int):
     return db.query(Order).filter(Order.id == order_id).first()
 
@@ -383,9 +368,6 @@ def update_order_status(db: Session, db_order: Order, status: str):
     return db_order
 
 
-# -------------------- PURCHASE HISTORY --------------------
-
-
 def get_valid_user_orders(db: Session, user_id: int):
     return db.query(Order).filter(
         Order.user_id == user_id,
@@ -443,9 +425,6 @@ def product_purchase_count(db: Session, user_id: int, product_id: int):
         "product_id": product_id,
         "quantity": quantity,
     }
-
-
-# -------------------- REVIEWS --------------------
 
 
 def get_review(db: Session, review_id: int):
@@ -513,9 +492,6 @@ def products_by_rating(db: Session, minimum=None, maximum=None):
     return result
 
 
-# -------------------- FAVORITES --------------------
-
-
 def get_favorite(db: Session, user_id: int, product_id: int):
     return db.query(Favorite).filter(
         Favorite.user_id == user_id,
@@ -554,9 +530,6 @@ def delete_favorite(db: Session, favorite: Favorite):
 def favorite_exists(db: Session, user_id: int, product_id: int):
     favorite = get_favorite(db, user_id, product_id)
     return {"is_favorite": favorite is not None}
-
-
-# -------------------- STATISTICS --------------------
 
 
 def get_valid_orders(db: Session):
