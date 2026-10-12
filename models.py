@@ -5,6 +5,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database import Base
 
+
 class User(Base):
     __tablename__ = "users"
 
@@ -17,6 +18,7 @@ class User(Base):
     reviews: Mapped[list["Review"]] = relationship(cascade="all, delete-orphan")
     favorites: Mapped[list["Favorite"]] = relationship(cascade="all, delete-orphan")
 
+
 class Category(Base):
     __tablename__ = "categories"
 
@@ -24,6 +26,7 @@ class Category(Base):
     name: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
 
     products: Mapped[list["Product"]] = relationship(back_populates="category")
+
 
 class Product(Base):
     __tablename__ = "products"
@@ -42,6 +45,7 @@ class Product(Base):
         cascade="all, delete-orphan",
     )
 
+
 class CartItem(Base):
     __tablename__ = "cart_items"
     __table_args__ = (UniqueConstraint("user_id", "product_id"),)
@@ -52,6 +56,7 @@ class CartItem(Base):
     quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
     product: Mapped["Product"] = relationship()
+
 
 class Order(Base):
     __tablename__ = "orders"
@@ -64,6 +69,7 @@ class Order(Base):
 
     items: Mapped[list["OrderItem"]] = relationship(cascade="all, delete-orphan")
 
+
 class OrderItem(Base):
     __tablename__ = "order_items"
 
@@ -75,6 +81,7 @@ class OrderItem(Base):
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
     subtotal: Mapped[float] = mapped_column(Float, nullable=False)
 
+
 class Review(Base):
     __tablename__ = "reviews"
 
@@ -83,6 +90,7 @@ class Review(Base):
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), nullable=False)
     rating: Mapped[int] = mapped_column(Integer, nullable=False)
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+
 
 class Favorite(Base):
     __tablename__ = "favorites"

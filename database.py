@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
+
 DATABASE_URL = "sqlite:///./internet_shop.db"
 
 engine = create_engine(
@@ -14,8 +15,10 @@ SessionLocal = sessionmaker(
     bind=engine,
 )
 
+
 class Base(DeclarativeBase):
     pass
+
 
 def get_db():
     db = SessionLocal()

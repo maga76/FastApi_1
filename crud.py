@@ -3,11 +3,14 @@ from sqlalchemy.orm import Session
 from models import CartItem, Category, Favorite, Order, OrderItem, Product, Review, User
 import schemas
 
+
 def get_users(db: Session):
     return db.query(User).order_by(User.id).all()
 
+
 def get_user(db: Session, user_id: int):
     return db.query(User).filter(User.id == user_id).first()
+
 
 def create_user(db: Session, user):
     old_user = db.query(User).filter(User.email == user.email).first()
@@ -18,6 +21,7 @@ def create_user(db: Session, user):
     db.commit()
     db.refresh(new_user)
     return new_user
+
 
 def update_user(db: Session, db_user: User, user):
     old_user = db.query(User).filter(
@@ -32,9 +36,11 @@ def update_user(db: Session, db_user: User, user):
     db.refresh(db_user)
     return db_user
 
+
 def delete_user(db: Session, user: User):
     db.delete(user)
     db.commit()
+
 
 def get_categories(db: Session, search=None, sort_by="id", order="asc"):
     query = db.query(Category)
@@ -47,8 +53,10 @@ def get_categories(db: Session, search=None, sort_by="id", order="asc"):
         query = query.order_by(field)
     return query.all()
 
+
 def get_category(db: Session, category_id: int):
     return db.query(Category).filter(Category.id == category_id).first()
+
 
 def create_category(db: Session, category):
     old_category = db.query(Category).filter(Category.name == category.name).first()
@@ -59,6 +67,7 @@ def create_category(db: Session, category):
     db.commit()
     db.refresh(new_category)
     return new_category
+
 
 def update_category(db: Session, db_category: Category, category):
     old_category = db.query(Category).filter(
@@ -72,14 +81,17 @@ def update_category(db: Session, db_category: Category, category):
     db.refresh(db_category)
     return db_category
 
+
 def delete_category(db: Session, category: Category):
     if category.products:
         raise ValueError("Category has products")
     db.delete(category)
     db.commit()
 
+
 def get_product(db: Session, product_id: int):
     return db.query(Product).filter(Product.id == product_id).first()
+
 
 def get_products(
     db: Session,
@@ -120,6 +132,7 @@ def get_products(
         query = query.order_by(field)
     return query.offset(skip).limit(limit).all()
 
+
 def create_product(db: Session, product):
     category = get_category(db, product.category_id)
     if category is None:
@@ -129,6 +142,7 @@ def create_product(db: Session, product):
     db.commit()
     db.refresh(new_product)
     return new_product
+
 
 def update_product(db: Session, db_product: Product, product):
     category = get_category(db, product.category_id)
@@ -143,6 +157,7 @@ def update_product(db: Session, db_product: Product, product):
     db.refresh(db_product)
     return db_product
 
+
 def delete_product(db: Session, product: Product):
     order_items = db.query(OrderItem).filter(OrderItem.product_id == product.id).all()
     for item in order_items:
@@ -153,6 +168,7 @@ def delete_product(db: Session, product: Product):
     db.delete(product)
     db.commit()
 
+
 def get_similar_products(db: Session, product_id: int):
     product = get_product(db, product_id)
     if product is None:
@@ -162,13 +178,16 @@ def get_similar_products(db: Session, product_id: int):
         Product.id != product_id,
     ).limit(10).all()
 
+
 def get_cart_item(db: Session, cart_item_id: int):
     return db.query(CartItem).filter(CartItem.id == cart_item_id).first()
+
 
 def get_cart_items(db: Session, user_id: int):
     return db.query(CartItem).filter(
         CartItem.user_id == user_id
     ).order_by(CartItem.id).all()
+
 
 def add_to_cart(db: Session, data: schemas.CartAdd):
     user = get_user(db, data.user_id)
@@ -204,6 +223,7 @@ def add_to_cart(db: Session, data: schemas.CartAdd):
     db.refresh(cart_item)
     return cart_item
 
+
 def change_cart_quantity(db: Session, cart_item: CartItem, quantity: int):
     product = get_product(db, cart_item.product_id)
     if quantity > product.stock:
@@ -213,6 +233,7 @@ def change_cart_quantity(db: Session, cart_item: CartItem, quantity: int):
     db.refresh(cart_item)
     return cart_item
 
+
 def decrease_cart_item(db: Session, cart_item: CartItem):
     if cart_item.quantity <= 1:
         raise ValueError("Quantity cannot be less than 1")
@@ -221,9 +242,11 @@ def decrease_cart_item(db: Session, cart_item: CartItem):
     db.refresh(cart_item)
     return cart_item
 
+
 def delete_cart_item(db: Session, cart_item: CartItem):
     db.delete(cart_item)
     db.commit()
+
 
 def clear_cart(db: Session, user_id: int):
     if get_user(db, user_id) is None:
@@ -231,6 +254,7 @@ def clear_cart(db: Session, user_id: int):
     db.query(CartItem).filter(CartItem.user_id == user_id).delete()
     db.commit()
     return True
+
 
 def cart_response(db: Session, user_id: int):
     if get_user(db, user_id) is None:
@@ -253,8 +277,10 @@ def cart_response(db: Session, user_id: int):
         "total_price": round(total_price, 2),
     }
 
+
 def get_order(db: Session, order_id: int):
     return db.query(Order).filter(Order.id == order_id).first()
+
 
 def get_order_total(cart_items):
     total_price = 0
@@ -263,6 +289,7 @@ def get_order_total(cart_items):
             raise ValueError(f"Not enough stock for {item.product.name}")
         total_price += item.product.price * item.quantity
     return round(total_price, 2)
+
 
 def add_order_items(db: Session, order: Order, cart_items):
     for item in cart_items:
@@ -278,6 +305,7 @@ def add_order_items(db: Session, order: Order, cart_items):
         db.add(order_item)
         item.product.stock -= item.quantity
         db.delete(item)
+
 
 def create_order(db: Session, user_id: int):
     if get_user(db, user_id) is None:
@@ -303,6 +331,7 @@ def create_order(db: Session, user_id: int):
         db.rollback()
         raise
 
+
 def get_orders(
     db: Session,
     status=None,
@@ -324,6 +353,7 @@ def get_orders(
         query = query.order_by(field)
     return query.offset(skip).limit(limit).all()
 
+
 def update_order_status(db: Session, db_order: Order, status: str):
     if db_order.status == "cancelled":
         raise ValueError("Cancelled order cannot be changed")
@@ -337,11 +367,13 @@ def update_order_status(db: Session, db_order: Order, status: str):
     db.refresh(db_order)
     return db_order
 
+
 def get_valid_user_orders(db: Session, user_id: int):
     return db.query(Order).filter(
         Order.user_id == user_id,
         Order.status != "cancelled",
     ).all()
+
 
 def user_purchase_statistics(db: Session, user_id: int):
     if get_user(db, user_id) is None:
@@ -361,6 +393,7 @@ def user_purchase_statistics(db: Session, user_id: int):
         "average_order": round(average_order, 2),
     }
 
+
 def purchased_products(db: Session, user_id: int):
     if get_user(db, user_id) is None:
         return None
@@ -377,6 +410,7 @@ def purchased_products(db: Session, user_id: int):
             products[item.product_id]["quantity"] += item.quantity
     return list(products.values())
 
+
 def product_purchase_count(db: Session, user_id: int, product_id: int):
     if get_user(db, user_id) is None:
         return None
@@ -392,8 +426,10 @@ def product_purchase_count(db: Session, user_id: int, product_id: int):
         "quantity": quantity,
     }
 
+
 def get_review(db: Session, review_id: int):
     return db.query(Review).filter(Review.id == review_id).first()
+
 
 def get_reviews(db: Session, product_id: int):
     if get_product(db, product_id) is None:
@@ -401,6 +437,7 @@ def get_reviews(db: Session, product_id: int):
     return db.query(Review).filter(
         Review.product_id == product_id
     ).order_by(Review.id.desc()).all()
+
 
 def create_review(db: Session, product_id: int, review):
     if get_product(db, product_id) is None:
@@ -413,9 +450,11 @@ def create_review(db: Session, product_id: int, review):
     db.refresh(new_review)
     return new_review
 
+
 def delete_review(db: Session, review: Review):
     db.delete(review)
     db.commit()
+
 
 def average_rating(db: Session, product_id: int):
     reviews = get_reviews(db, product_id)
@@ -432,6 +471,7 @@ def average_rating(db: Session, product_id: int):
         "product_id": product_id,
         "average_rating": round(result, 2),
     }
+
 
 def products_by_rating(db: Session, minimum=None, maximum=None):
     products = db.query(Product).all()
@@ -451,11 +491,13 @@ def products_by_rating(db: Session, minimum=None, maximum=None):
         })
     return result
 
+
 def get_favorite(db: Session, user_id: int, product_id: int):
     return db.query(Favorite).filter(
         Favorite.user_id == user_id,
         Favorite.product_id == product_id,
     ).first()
+
 
 def get_favorites(db: Session, user_id: int):
     if get_user(db, user_id) is None:
@@ -463,6 +505,7 @@ def get_favorites(db: Session, user_id: int):
     return db.query(Favorite).filter(
         Favorite.user_id == user_id
     ).order_by(Favorite.id).all()
+
 
 def create_favorite(db: Session, favorite):
     if get_user(db, favorite.user_id) is None:
@@ -478,16 +521,20 @@ def create_favorite(db: Session, favorite):
     db.refresh(new_favorite)
     return new_favorite
 
+
 def delete_favorite(db: Session, favorite: Favorite):
     db.delete(favorite)
     db.commit()
+
 
 def favorite_exists(db: Session, user_id: int, product_id: int):
     favorite = get_favorite(db, user_id, product_id)
     return {"is_favorite": favorite is not None}
 
+
 def get_valid_orders(db: Session):
     return db.query(Order).filter(Order.status != "cancelled").all()
+
 
 def shop_statistics(db: Session):
     orders = get_valid_orders(db)
@@ -507,6 +554,7 @@ def shop_statistics(db: Session):
         "average_order_sum": round(average_order_sum, 2),
     }
 
+
 def best_selling_product(db: Session):
     orders = get_valid_orders(db)
     products = {}
@@ -522,6 +570,7 @@ def best_selling_product(db: Session):
     if not products:
         return None
     return max(products.values(), key=lambda product: product["sold"])
+
 
 def top_user(db: Session):
     users = get_users(db)

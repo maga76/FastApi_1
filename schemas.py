@@ -3,10 +3,12 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+
 def clean_text(value: str):
     if not value.strip():
         raise ValueError("Field cannot be empty")
     return value.strip()
+
 
 class UserCreate(BaseModel):
     name: str
@@ -17,12 +19,15 @@ class UserCreate(BaseModel):
     def validate_text(cls, value: str):
         return clean_text(value)
 
+
 class UserUpdate(UserCreate):
     pass
+
 
 class UserRead(UserCreate):
     id: int
     model_config = ConfigDict(from_attributes=True)
+
 
 class CategoryCreate(BaseModel):
     name: str
@@ -32,12 +37,15 @@ class CategoryCreate(BaseModel):
     def validate_name(cls, value: str):
         return clean_text(value)
 
+
 class CategoryUpdate(CategoryCreate):
     pass
+
 
 class CategoryRead(CategoryCreate):
     id: int
     model_config = ConfigDict(from_attributes=True)
+
 
 class ProductCreate(BaseModel):
     name: str
@@ -51,23 +59,29 @@ class ProductCreate(BaseModel):
     def validate_name(cls, value: str):
         return clean_text(value)
 
+
 class ProductUpdate(ProductCreate):
     pass
+
 
 class ProductRead(ProductCreate):
     id: int
     model_config = ConfigDict(from_attributes=True)
 
+
 class ProductNested(ProductRead):
     category: CategoryRead
+
 
 class CartAdd(BaseModel):
     user_id: int = Field(ge=1)
     product_id: int = Field(ge=1)
     quantity: int = Field(ge=1)
 
+
 class CartQuantity(BaseModel):
     quantity: int = Field(ge=1)
+
 
 class CartItemRead(BaseModel):
     id: int
@@ -75,16 +89,20 @@ class CartItemRead(BaseModel):
     product: ProductRead
     subtotal: float
 
+
 class CartRead(BaseModel):
     user_id: int
     items: list[CartItemRead]
     total_price: float
 
+
 class OrderCreate(BaseModel):
     user_id: int = Field(ge=1)
 
+
 class OrderStatusUpdate(BaseModel):
     status: Literal["new", "paid", "cancelled"]
+
 
 class OrderItemRead(BaseModel):
     id: int
@@ -95,6 +113,7 @@ class OrderItemRead(BaseModel):
     subtotal: float
     model_config = ConfigDict(from_attributes=True)
 
+
 class OrderRead(BaseModel):
     id: int
     user_id: int
@@ -104,19 +123,23 @@ class OrderRead(BaseModel):
     items: list[OrderItemRead]
     model_config = ConfigDict(from_attributes=True)
 
+
 class ReviewCreate(BaseModel):
     user_id: int = Field(ge=1)
     rating: int = Field(ge=1, le=5)
     comment: str | None = None
+
 
 class ReviewRead(ReviewCreate):
     id: int
     product_id: int
     model_config = ConfigDict(from_attributes=True)
 
+
 class FavoriteCreate(BaseModel):
     user_id: int = Field(ge=1)
     product_id: int = Field(ge=1)
+
 
 class FavoriteRead(BaseModel):
     id: int
