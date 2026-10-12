@@ -46,19 +46,22 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
 
 @app.put("/users/{user_id}", response_model=schemas.UserRead)
 def update_user(user_id: int, data: schemas.UserUpdate, db: Session = Depends(get_db)):
+    db_user = crud.get_user(db, user_id)
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
     try:
-        user = crud.update_user(db, user_id, data)
+        user = crud.update_user(db, db_user, data)
     except ValueError as error:
         bad_request(error)
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
     return user
 
 
 @app.delete("/users/{user_id}")
 def delete_user(user_id: int, db: Session = Depends(get_db)):
-    if crud.delete_user(db, user_id) is None:
+    user = crud.get_user(db, user_id)
+    if user is None:
         raise HTTPException(status_code=404, detail="User not found")
+    crud.delete_user(db, user)
     return {"message": "User deleted"}
 
 
@@ -90,23 +93,25 @@ def get_category(category_id: int, db: Session = Depends(get_db)):
 
 @app.put("/categories/{category_id}", response_model=schemas.CategoryRead)
 def update_category(category_id: int, data: schemas.CategoryUpdate, db: Session = Depends(get_db)):
+    db_category = crud.get_category(db, category_id)
+    if db_category is None:
+        raise HTTPException(status_code=404, detail="Category not found")
     try:
-        category = crud.update_category(db, category_id, data)
+        category = crud.update_category(db, db_category, data)
     except ValueError as error:
         bad_request(error)
-    if category is None:
-        raise HTTPException(status_code=404, detail="Category not found")
     return category
 
 
 @app.delete("/categories/{category_id}")
 def delete_category(category_id: int, db: Session = Depends(get_db)):
-    try:
-        category = crud.delete_category(db, category_id)
-    except ValueError as error:
-        bad_request(error)
+    category = crud.get_category(db, category_id)
     if category is None:
         raise HTTPException(status_code=404, detail="Category not found")
+    try:
+        crud.delete_category(db, category)
+    except ValueError as error:
+        bad_request(error)
     return {"message": "Category deleted"}
 
 
@@ -189,23 +194,25 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
 
 @app.put("/products/{product_id}", response_model=schemas.ProductNested)
 def update_product(product_id: int, data: schemas.ProductUpdate, db: Session = Depends(get_db)):
+    db_product = crud.get_product(db, product_id)
+    if db_product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
     try:
-        product = crud.update_product(db, product_id, data)
+        product = crud.update_product(db, db_product, data)
     except ValueError as error:
         bad_request(error)
-    if product is None:
-        raise HTTPException(status_code=404, detail="Product not found")
     return product
 
 
 @app.delete("/products/{product_id}")
 def delete_product(product_id: int, db: Session = Depends(get_db)):
-    try:
-        product = crud.delete_product(db, product_id)
-    except ValueError as error:
-        bad_request(error)
+    product = crud.get_product(db, product_id)
     if product is None:
         raise HTTPException(status_code=404, detail="Product not found")
+    try:
+        crud.delete_product(db, product)
+    except ValueError as error:
+        bad_request(error)
     return {"message": "Product deleted"}
 
 
@@ -240,30 +247,34 @@ def change_cart_quantity(
     data: schemas.CartQuantity,
     db: Session = Depends(get_db),
 ):
+    cart_item = crud.get_cart_item(db, cart_item_id)
+    if cart_item is None:
+        raise HTTPException(status_code=404, detail="Cart item not found")
     try:
-        item = crud.change_cart_quantity(db, cart_item_id, data.quantity)
+        item = crud.change_cart_quantity(db, cart_item, data.quantity)
     except ValueError as error:
         bad_request(error)
-    if item is None:
-        raise HTTPException(status_code=404, detail="Cart item not found")
     return {"message": "Quantity changed", "quantity": item.quantity}
 
 
 @app.patch("/cart/items/{cart_item_id}/decrease")
 def decrease_cart_item(cart_item_id: int, db: Session = Depends(get_db)):
+    cart_item = crud.get_cart_item(db, cart_item_id)
+    if cart_item is None:
+        raise HTTPException(status_code=404, detail="Cart item not found")
     try:
-        item = crud.decrease_cart_item(db, cart_item_id)
+        item = crud.decrease_cart_item(db, cart_item)
     except ValueError as error:
         bad_request(error)
-    if item is None:
-        raise HTTPException(status_code=404, detail="Cart item not found")
     return {"message": "Quantity decreased", "quantity": item.quantity}
 
 
 @app.delete("/cart/items/{cart_item_id}")
 def delete_cart_item(cart_item_id: int, db: Session = Depends(get_db)):
-    if crud.delete_cart_item(db, cart_item_id) is None:
+    cart_item = crud.get_cart_item(db, cart_item_id)
+    if cart_item is None:
         raise HTTPException(status_code=404, detail="Cart item not found")
+    crud.delete_cart_item(db, cart_item)
     return {"message": "Product removed from cart"}
 
 
@@ -310,23 +321,25 @@ def update_order_status(
     data: schemas.OrderStatusUpdate,
     db: Session = Depends(get_db),
 ):
+    db_order = crud.get_order(db, order_id)
+    if db_order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
     try:
-        order = crud.update_order_status(db, order_id, data.status)
+        order = crud.update_order_status(db, db_order, data.status)
     except ValueError as error:
         bad_request(error)
-    if order is None:
-        raise HTTPException(status_code=404, detail="Order not found")
     return order
 
 
 @app.patch("/orders/{order_id}/cancel", response_model=schemas.OrderRead)
 def cancel_order(order_id: int, db: Session = Depends(get_db)):
+    db_order = crud.get_order(db, order_id)
+    if db_order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
     try:
-        order = crud.update_order_status(db, order_id, "cancelled")
+        order = crud.update_order_status(db, db_order, "cancelled")
     except ValueError as error:
         bad_request(error)
-    if order is None:
-        raise HTTPException(status_code=404, detail="Order not found")
     return order
 
 
@@ -410,15 +423,17 @@ def product_average_rating(product_id: int, db: Session = Depends(get_db)):
 
 @app.delete("/reviews/{review_id}")
 def delete_review(review_id: int, db: Session = Depends(get_db)):
-    if crud.delete_review(db, review_id) is None:
+    review = crud.get_review(db, review_id)
+    if review is None:
         raise HTTPException(status_code=404, detail="Review not found")
+    crud.delete_review(db, review)
     return {"message": "Review deleted"}
 
 
 @app.post("/favorites/", response_model=schemas.FavoriteRead, status_code=201)
 def add_favorite(data: schemas.FavoriteCreate, db: Session = Depends(get_db)):
     try:
-        return crud.add_favorite(db, data)
+        return crud.create_favorite(db, data)
     except ValueError as error:
         bad_request(error)
 
@@ -438,8 +453,10 @@ def check_favorite(user_id: int, product_id: int, db: Session = Depends(get_db))
 
 @app.delete("/favorites/{user_id}/{product_id}")
 def delete_favorite(user_id: int, product_id: int, db: Session = Depends(get_db)):
-    if crud.delete_favorite(db, user_id, product_id) is None:
+    favorite = crud.get_favorite(db, user_id, product_id)
+    if favorite is None:
         raise HTTPException(status_code=404, detail="Favorite not found")
+    crud.delete_favorite(db, favorite)
     return {"message": "Product removed from favorites"}
 
 

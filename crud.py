@@ -1,107 +1,93 @@
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
-import models
+from models import CartItem, Category, Favorite, Order, OrderItem, Product, Review, User
 import schemas
 
 
 def get_users(db: Session):
-    return db.query(models.User).all()
+    return db.query(User).order_by(User.id).all()
 
 
 def get_user(db: Session, user_id: int):
-    return db.query(models.User).filter(models.User.id == user_id).first()
+    return db.query(User).filter(User.id == user_id).first()
 
 
 def create_user(db: Session, data: schemas.UserCreate):
-    if db.query(models.User).filter(models.User.email == data.email).first():
+    if db.query(User).filter(User.email == data.email).first():
         raise ValueError("Email already exists")
-    user = models.User(name=data.name, email=data.email)
-    db.add(user)
+    new_user = User(name=data.name, email=data.email)
+    db.add(new_user)
     db.commit()
-    db.refresh(user)
-    return user
+    db.refresh(new_user)
+    return new_user
 
 
-def update_user(db: Session, user_id: int, data: schemas.UserUpdate):
-    user = get_user(db, user_id)
-    if user is None:
-        return None
-    duplicate = db.query(models.User).filter(
-        models.User.email == data.email,
-        models.User.id != user_id,
+def update_user(db: Session, db_user: User, data: schemas.UserUpdate):
+    duplicate = db.query(User).filter(
+        User.email == data.email,
+        User.id != db_user.id,
     ).first()
     if duplicate:
         raise ValueError("Email already exists")
-    user.name = data.name
-    user.email = data.email
+    db_user.name = data.name
+    db_user.email = data.email
     db.commit()
-    db.refresh(user)
-    return user
+    db.refresh(db_user)
+    return db_user
 
 
-def delete_user(db: Session, user_id: int):
-    user = get_user(db, user_id)
-    if user is None:
-        return None
+def delete_user(db: Session, user: User):
     db.delete(user)
     db.commit()
-    return user
 
 
 def get_categories(db: Session, search: str | None, sort_by: str, order: str):
-    query = db.query(models.Category)
+    query = db.query(Category)
     if search:
-        query = query.filter(models.Category.name.contains(search))
-    column = models.Category.name if sort_by == "name" else models.Category.id
+        query = query.filter(Category.name.ilike(f"%{search}%"))
+    column = Category.name if sort_by == "name" else Category.id
     query = query.order_by(column.desc() if order == "desc" else column.asc())
     return query.all()
 
 
 def get_category(db: Session, category_id: int):
-    return db.query(models.Category).filter(models.Category.id == category_id).first()
+    return db.query(Category).filter(Category.id == category_id).first()
 
 
 def create_category(db: Session, data: schemas.CategoryCreate):
-    if db.query(models.Category).filter(models.Category.name == data.name).first():
+    if db.query(Category).filter(Category.name == data.name).first():
         raise ValueError("Category already exists")
-    category = models.Category(name=data.name)
-    db.add(category)
+    new_category = Category(name=data.name)
+    db.add(new_category)
     db.commit()
-    db.refresh(category)
-    return category
+    db.refresh(new_category)
+    return new_category
 
 
-def update_category(db: Session, category_id: int, data: schemas.CategoryUpdate):
-    category = get_category(db, category_id)
-    if category is None:
-        return None
-    duplicate = db.query(models.Category).filter(
-        models.Category.name == data.name,
-        models.Category.id != category_id,
+def update_category(db: Session, db_category: Category, data: schemas.CategoryUpdate):
+    duplicate = db.query(Category).filter(
+        Category.name == data.name,
+        Category.id != db_category.id,
     ).first()
     if duplicate:
         raise ValueError("Category already exists")
-    category.name = data.name
+    db_category.name = data.name
     db.commit()
-    db.refresh(category)
-    return category
+    db.refresh(db_category)
+    return db_category
 
 
-def delete_category(db: Session, category_id: int):
-    category = get_category(db, category_id)
-    if category is None:
-        return None
+def delete_category(db: Session, category: Category):
     if category.products:
         raise ValueError("Category has products")
     db.delete(category)
     db.commit()
-    return category
 
 
 def get_product(db: Session, product_id: int):
-    return db.query(models.Product).options(joinedload(models.Product.category)).filter(
-        models.Product.id == product_id
+    return db.query(Product).options(joinedload(Product.category)).filter(
+        Product.id == product_id
     ).first()
 
 
@@ -117,26 +103,26 @@ def get_products(
     sort_by: str = "id",
     order: str = "asc",
 ):
-    query = db.query(models.Product).options(joinedload(models.Product.category))
+    query = db.query(Product).options(joinedload(Product.category))
     if search:
-        query = query.filter(models.Product.name.contains(search))
+        query = query.filter(Product.name.ilike(f"%{search}%"))
     if category_id is not None:
-        query = query.filter(models.Product.category_id == category_id)
+        query = query.filter(Product.category_id == category_id)
     if min_price is not None:
-        query = query.filter(models.Product.price >= min_price)
+        query = query.filter(Product.price >= min_price)
     if max_price is not None:
-        query = query.filter(models.Product.price <= max_price)
+        query = query.filter(Product.price <= max_price)
     if in_stock is True:
-        query = query.filter(models.Product.stock > 0)
+        query = query.filter(Product.stock > 0)
     if in_stock is False:
-        query = query.filter(models.Product.stock == 0)
+        query = query.filter(Product.stock == 0)
     columns = {
-        "id": models.Product.id,
-        "name": models.Product.name,
-        "price": models.Product.price,
-        "stock": models.Product.stock,
+        "id": Product.id,
+        "name": Product.name,
+        "price": Product.price,
+        "stock": Product.stock,
     }
-    column = columns.get(sort_by, models.Product.id)
+    column = columns.get(sort_by, Product.id)
     query = query.order_by(column.desc() if order == "desc" else column.asc())
     return query.offset(skip).limit(limit).all()
 
@@ -144,54 +130,53 @@ def get_products(
 def create_product(db: Session, data: schemas.ProductCreate):
     if get_category(db, data.category_id) is None:
         raise ValueError("Category not found")
-    product = models.Product(**data.model_dump())
-    db.add(product)
+    new_product = Product(**data.model_dump())
+    db.add(new_product)
     db.commit()
-    db.refresh(product)
-    return get_product(db, product.id)
+    db.refresh(new_product)
+    return get_product(db, new_product.id)
 
 
-def update_product(db: Session, product_id: int, data: schemas.ProductUpdate):
-    product = get_product(db, product_id)
-    if product is None:
-        return None
+def update_product(db: Session, db_product: Product, data: schemas.ProductUpdate):
     if get_category(db, data.category_id) is None:
         raise ValueError("Category not found")
     for field, value in data.model_dump().items():
-        setattr(product, field, value)
+        setattr(db_product, field, value)
     db.commit()
-    db.refresh(product)
-    return product
+    db.refresh(db_product)
+    return db_product
 
 
-def delete_product(db: Session, product_id: int):
-    product = get_product(db, product_id)
-    if product is None:
-        return None
-    active_order = db.query(models.OrderItem).join(models.Order).filter(
-        models.OrderItem.product_id == product_id,
-        models.Order.status != "cancelled",
+def delete_product(db: Session, product: Product):
+    active_order = db.query(OrderItem).join(Order).filter(
+        OrderItem.product_id == product.id,
+        Order.status != "cancelled",
     ).first()
     if active_order:
         raise ValueError("Product is in an active order")
-    db.query(models.CartItem).filter(models.CartItem.product_id == product_id).delete()
+    db.query(CartItem).filter(CartItem.product_id == product.id).delete()
     db.delete(product)
     db.commit()
-    return product
 
 
 def get_similar_products(db: Session, product_id: int):
     product = get_product(db, product_id)
     if product is None:
         return None
-    return db.query(models.Product).filter(
-        models.Product.category_id == product.category_id,
-        models.Product.id != product_id,
+    return db.query(Product).filter(
+        Product.category_id == product.category_id,
+        Product.id != product_id,
     ).limit(10).all()
 
 
 def get_cart_item(db: Session, cart_item_id: int):
-    return db.query(models.CartItem).filter(models.CartItem.id == cart_item_id).first()
+    return db.query(CartItem).filter(CartItem.id == cart_item_id).first()
+
+
+def get_cart_items(db: Session, user_id: int):
+    return db.query(CartItem).options(joinedload(CartItem.product)).filter(
+        CartItem.user_id == user_id
+    ).order_by(CartItem.id).all()
 
 
 def add_to_cart(db: Session, data: schemas.CartAdd):
@@ -202,9 +187,9 @@ def add_to_cart(db: Session, data: schemas.CartAdd):
         raise ValueError("Product not found")
     if product.stock == 0:
         raise ValueError("Product is out of stock")
-    item = db.query(models.CartItem).filter(
-        models.CartItem.user_id == data.user_id,
-        models.CartItem.product_id == data.product_id,
+    item = db.query(CartItem).filter(
+        CartItem.user_id == data.user_id,
+        CartItem.product_id == data.product_id,
     ).first()
     new_quantity = data.quantity + (item.quantity if item else 0)
     if new_quantity > product.stock:
@@ -212,51 +197,41 @@ def add_to_cart(db: Session, data: schemas.CartAdd):
     if item:
         item.quantity = new_quantity
     else:
-        item = models.CartItem(**data.model_dump())
+        item = CartItem(**data.model_dump())
         db.add(item)
     db.commit()
     db.refresh(item)
     return item
 
 
-def change_cart_quantity(db: Session, cart_item_id: int, quantity: int):
-    item = get_cart_item(db, cart_item_id)
-    if item is None:
-        return None
-    product = get_product(db, item.product_id)
+def change_cart_quantity(db: Session, cart_item: CartItem, quantity: int):
+    product = get_product(db, cart_item.product_id)
     if quantity > product.stock:
         raise ValueError("Not enough product in stock")
-    item.quantity = quantity
+    cart_item.quantity = quantity
     db.commit()
-    db.refresh(item)
-    return item
+    db.refresh(cart_item)
+    return cart_item
 
 
-def decrease_cart_item(db: Session, cart_item_id: int):
-    item = get_cart_item(db, cart_item_id)
-    if item is None:
-        return None
-    if item.quantity <= 1:
+def decrease_cart_item(db: Session, cart_item: CartItem):
+    if cart_item.quantity <= 1:
         raise ValueError("Quantity cannot be less than 1")
-    item.quantity -= 1
+    cart_item.quantity -= 1
     db.commit()
-    db.refresh(item)
-    return item
+    db.refresh(cart_item)
+    return cart_item
 
 
-def delete_cart_item(db: Session, cart_item_id: int):
-    item = get_cart_item(db, cart_item_id)
-    if item is None:
-        return None
-    db.delete(item)
+def delete_cart_item(db: Session, cart_item: CartItem):
+    db.delete(cart_item)
     db.commit()
-    return item
 
 
 def clear_cart(db: Session, user_id: int):
     if get_user(db, user_id) is None:
         return None
-    db.query(models.CartItem).filter(models.CartItem.user_id == user_id).delete()
+    db.query(CartItem).filter(CartItem.user_id == user_id).delete()
     db.commit()
     return True
 
@@ -264,9 +239,7 @@ def clear_cart(db: Session, user_id: int):
 def cart_response(db: Session, user_id: int):
     if get_user(db, user_id) is None:
         return None
-    items = db.query(models.CartItem).options(joinedload(models.CartItem.product)).filter(
-        models.CartItem.user_id == user_id
-    ).all()
+    items = get_cart_items(db, user_id)
     result = []
     total = 0
     for item in items:
@@ -281,40 +254,54 @@ def cart_response(db: Session, user_id: int):
     return {"user_id": user_id, "items": result, "total_price": round(total, 2)}
 
 
-def create_order(db: Session, user_id: int):
-    if get_user(db, user_id) is None:
-        raise ValueError("User not found")
-    cart_items = db.query(models.CartItem).options(joinedload(models.CartItem.product)).filter(
-        models.CartItem.user_id == user_id
-    ).all()
-    if not cart_items:
-        raise ValueError("Cart is empty")
+def get_order_total(cart_items):
+    total_price = 0
     for item in cart_items:
         if item.quantity > item.product.stock:
             raise ValueError(f"Not enough stock for {item.product.name}")
-    total = round(sum(item.product.price * item.quantity for item in cart_items), 2)
-    order = models.Order(user_id=user_id, total_price=total, status="new")
-    db.add(order)
-    db.flush()
+        total_price += item.product.price * item.quantity
+    return round(total_price, 2)
+
+
+def add_order_items(db: Session, order: Order, cart_items):
     for item in cart_items:
         subtotal = round(item.product.price * item.quantity, 2)
-        db.add(models.OrderItem(
+        order_item = OrderItem(
             order_id=order.id,
             product_id=item.product_id,
             product_name=item.product.name,
             price=item.product.price,
             quantity=item.quantity,
             subtotal=subtotal,
-        ))
+        )
+        db.add(order_item)
         item.product.stock -= item.quantity
         db.delete(item)
-    db.commit()
-    return get_order(db, order.id)
+
+
+def create_order(db: Session, user_id: int):
+    if get_user(db, user_id) is None:
+        raise ValueError("User not found")
+    cart_items = get_cart_items(db, user_id)
+    if not cart_items:
+        raise ValueError("Cart is empty")
+    total_price = get_order_total(cart_items)
+    try:
+        new_order = Order(user_id=user_id, total_price=total_price, status="new")
+        db.add(new_order)
+        db.flush()
+        add_order_items(db, new_order, cart_items)
+        db.commit()
+        db.refresh(new_order)
+        return get_order(db, new_order.id)
+    except Exception:
+        db.rollback()
+        raise
 
 
 def get_order(db: Session, order_id: int):
-    return db.query(models.Order).options(joinedload(models.Order.items)).filter(
-        models.Order.id == order_id
+    return db.query(Order).options(joinedload(Order.items)).filter(
+        Order.id == order_id
     ).first()
 
 
@@ -327,38 +314,36 @@ def get_orders(
     sort_by: str,
     order: str,
 ):
-    query = db.query(models.Order).options(joinedload(models.Order.items))
+    query = db.query(Order).options(joinedload(Order.items))
     if status:
-        query = query.filter(models.Order.status == status)
+        query = query.filter(Order.status == status)
     if user_id is not None:
-        query = query.filter(models.Order.user_id == user_id)
-    column = models.Order.total_price if sort_by == "total_price" else models.Order.created_at
+        query = query.filter(Order.user_id == user_id)
+    column = Order.total_price if sort_by == "total_price" else Order.created_at
     query = query.order_by(column.desc() if order == "desc" else column.asc())
     return query.offset(skip).limit(limit).all()
 
 
-def update_order_status(db: Session, order_id: int, status: str):
-    order = get_order(db, order_id)
-    if order is None:
-        return None
-    if order.status == "cancelled":
+def update_order_status(db: Session, db_order: Order, status: str):
+    if db_order.status == "cancelled":
         raise ValueError("Cancelled order cannot be changed")
     if status == "cancelled":
-        for item in order.items:
-            product = db.query(models.Product).filter(models.Product.id == item.product_id).first()
+        for item in db_order.items:
+            product = db.query(Product).filter(Product.id == item.product_id).first()
             if product:
                 product.stock += item.quantity
-    order.status = status
+    db_order.status = status
     db.commit()
-    return get_order(db, order_id)
+    db.refresh(db_order)
+    return get_order(db, db_order.id)
 
 
 def user_purchase_statistics(db: Session, user_id: int):
     if get_user(db, user_id) is None:
         return None
-    orders = db.query(models.Order).filter(
-        models.Order.user_id == user_id,
-        models.Order.status != "cancelled",
+    orders = db.query(Order).filter(
+        Order.user_id == user_id,
+        Order.status != "cancelled",
     ).all()
     total = round(sum(order.total_price for order in orders), 2)
     return {
@@ -373,13 +358,13 @@ def purchased_products(db: Session, user_id: int):
     if get_user(db, user_id) is None:
         return None
     rows = db.query(
-        models.OrderItem.product_id,
-        models.OrderItem.product_name,
-        func.sum(models.OrderItem.quantity).label("quantity"),
-    ).join(models.Order).filter(
-        models.Order.user_id == user_id,
-        models.Order.status != "cancelled",
-    ).group_by(models.OrderItem.product_id, models.OrderItem.product_name).all()
+        OrderItem.product_id,
+        OrderItem.product_name,
+        func.sum(OrderItem.quantity).label("quantity"),
+    ).join(Order).filter(
+        Order.user_id == user_id,
+        Order.status != "cancelled",
+    ).group_by(OrderItem.product_id, OrderItem.product_name).all()
     return [
         {"product_id": row.product_id, "product_name": row.product_name, "quantity": row.quantity}
         for row in rows
@@ -389,12 +374,12 @@ def purchased_products(db: Session, user_id: int):
 def product_purchase_count(db: Session, user_id: int, product_id: int):
     if get_user(db, user_id) is None:
         return None
-    quantity = db.query(func.coalesce(func.sum(models.OrderItem.quantity), 0)).join(
-        models.Order
+    quantity = db.query(func.coalesce(func.sum(OrderItem.quantity), 0)).join(
+        Order
     ).filter(
-        models.Order.user_id == user_id,
-        models.Order.status != "cancelled",
-        models.OrderItem.product_id == product_id,
+        Order.user_id == user_id,
+        Order.status != "cancelled",
+        OrderItem.product_id == product_id,
     ).scalar()
     return {"user_id": user_id, "product_id": product_id, "quantity": quantity}
 
@@ -404,108 +389,102 @@ def create_review(db: Session, product_id: int, data: schemas.ReviewCreate):
         raise ValueError("Product not found")
     if get_user(db, data.user_id) is None:
         raise ValueError("User not found")
-    review = models.Review(product_id=product_id, **data.model_dump())
-    db.add(review)
+    new_review = Review(product_id=product_id, **data.model_dump())
+    db.add(new_review)
     db.commit()
-    db.refresh(review)
-    return review
+    db.refresh(new_review)
+    return new_review
 
 
 def get_reviews(db: Session, product_id: int):
     if get_product(db, product_id) is None:
         return None
-    return db.query(models.Review).filter(models.Review.product_id == product_id).all()
+    return db.query(Review).filter(Review.product_id == product_id).all()
 
 
-def delete_review(db: Session, review_id: int):
-    review = db.query(models.Review).filter(models.Review.id == review_id).first()
-    if review is None:
-        return None
+def get_review(db: Session, review_id: int):
+    return db.query(Review).filter(Review.id == review_id).first()
+
+
+def delete_review(db: Session, review: Review):
     db.delete(review)
     db.commit()
-    return review
 
 
 def average_rating(db: Session, product_id: int):
     if get_product(db, product_id) is None:
         return None
-    value = db.query(func.avg(models.Review.rating)).filter(
-        models.Review.product_id == product_id
+    value = db.query(func.avg(Review.rating)).filter(
+        Review.product_id == product_id
     ).scalar()
     return {"product_id": product_id, "average_rating": round(value or 0, 2)}
 
 
 def products_by_rating(db: Session, minimum: float | None = None, maximum: float | None = None):
     query = db.query(
-        models.Product.id,
-        models.Product.name,
-        func.avg(models.Review.rating).label("average_rating"),
-    ).join(models.Review).group_by(models.Product.id, models.Product.name)
+        Product.id,
+        Product.name,
+        func.avg(Review.rating).label("average_rating"),
+    ).join(Review).group_by(Product.id, Product.name)
     if minimum is not None:
-        query = query.having(func.avg(models.Review.rating) >= minimum)
+        query = query.having(func.avg(Review.rating) >= minimum)
     if maximum is not None:
-        query = query.having(func.avg(models.Review.rating) <= maximum)
+        query = query.having(func.avg(Review.rating) <= maximum)
     return [
         {"product_id": row.id, "name": row.name, "average_rating": round(row.average_rating, 2)}
         for row in query.all()
     ]
 
 
-def add_favorite(db: Session, data: schemas.FavoriteCreate):
+def get_favorite(db: Session, user_id: int, product_id: int):
+    return db.query(Favorite).filter(
+        Favorite.user_id == user_id,
+        Favorite.product_id == product_id,
+    ).first()
+
+
+def create_favorite(db: Session, data: schemas.FavoriteCreate):
     if get_user(db, data.user_id) is None:
         raise ValueError("User not found")
     if get_product(db, data.product_id) is None:
         raise ValueError("Product not found")
-    exists = db.query(models.Favorite).filter(
-        models.Favorite.user_id == data.user_id,
-        models.Favorite.product_id == data.product_id,
-    ).first()
+    exists = get_favorite(db, data.user_id, data.product_id)
     if exists:
         raise ValueError("Product is already in favorites")
-    favorite = models.Favorite(**data.model_dump())
-    db.add(favorite)
+    new_favorite = Favorite(**data.model_dump())
+    db.add(new_favorite)
     db.commit()
-    db.refresh(favorite)
-    return db.query(models.Favorite).options(joinedload(models.Favorite.product)).filter(
-        models.Favorite.id == favorite.id
+    db.refresh(new_favorite)
+    return db.query(Favorite).options(joinedload(Favorite.product)).filter(
+        Favorite.id == new_favorite.id
     ).first()
 
 
 def get_favorites(db: Session, user_id: int):
     if get_user(db, user_id) is None:
         return None
-    return db.query(models.Favorite).options(joinedload(models.Favorite.product)).filter(
-        models.Favorite.user_id == user_id
+    return db.query(Favorite).options(joinedload(Favorite.product)).filter(
+        Favorite.user_id == user_id
     ).all()
 
 
-def delete_favorite(db: Session, user_id: int, product_id: int):
-    favorite = db.query(models.Favorite).filter(
-        models.Favorite.user_id == user_id,
-        models.Favorite.product_id == product_id,
-    ).first()
-    if favorite is None:
-        return None
+def delete_favorite(db: Session, favorite: Favorite):
     db.delete(favorite)
     db.commit()
-    return favorite
 
 
 def favorite_exists(db: Session, user_id: int, product_id: int):
-    favorite = db.query(models.Favorite).filter(
-        models.Favorite.user_id == user_id,
-        models.Favorite.product_id == product_id,
-    ).first()
+    favorite = get_favorite(db, user_id, product_id)
     return {"is_favorite": favorite is not None}
 
 
 def shop_statistics(db: Session):
-    orders = db.query(models.Order).filter(models.Order.status != "cancelled").all()
+    orders = db.query(Order).filter(Order.status != "cancelled").all()
     total = round(sum(order.total_price for order in orders), 2)
     return {
-        "users_count": db.query(models.User).count(),
-        "products_count": db.query(models.Product).count(),
-        "categories_count": db.query(models.Category).count(),
+        "users_count": db.query(User).count(),
+        "products_count": db.query(Product).count(),
+        "categories_count": db.query(Category).count(),
         "orders_count": len(orders),
         "total_orders_sum": total,
         "average_order_sum": round(total / len(orders), 2) if orders else 0,
@@ -514,13 +493,13 @@ def shop_statistics(db: Session):
 
 def best_selling_product(db: Session):
     row = db.query(
-        models.OrderItem.product_id,
-        models.OrderItem.product_name,
-        func.sum(models.OrderItem.quantity).label("sold"),
-    ).join(models.Order).filter(models.Order.status != "cancelled").group_by(
-        models.OrderItem.product_id,
-        models.OrderItem.product_name,
-    ).order_by(func.sum(models.OrderItem.quantity).desc()).first()
+        OrderItem.product_id,
+        OrderItem.product_name,
+        func.sum(OrderItem.quantity).label("sold"),
+    ).join(Order).filter(Order.status != "cancelled").group_by(
+        OrderItem.product_id,
+        OrderItem.product_name,
+    ).order_by(func.sum(OrderItem.quantity).desc()).first()
     if row is None:
         return None
     return {"product_id": row.product_id, "name": row.product_name, "sold": row.sold}
@@ -528,13 +507,13 @@ def best_selling_product(db: Session):
 
 def top_user(db: Session):
     row = db.query(
-        models.User.id,
-        models.User.name,
-        func.sum(models.Order.total_price).label("spent"),
-    ).join(models.Order).filter(models.Order.status != "cancelled").group_by(
-        models.User.id,
-        models.User.name,
-    ).order_by(func.sum(models.Order.total_price).desc()).first()
+        User.id,
+        User.name,
+        func.sum(Order.total_price).label("spent"),
+    ).join(Order).filter(Order.status != "cancelled").group_by(
+        User.id,
+        User.name,
+    ).order_by(func.sum(Order.total_price).desc()).first()
     if row is None:
         return None
     return {"user_id": row.id, "name": row.name, "total_spent": round(row.spent, 2)}
